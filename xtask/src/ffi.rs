@@ -1,34 +1,68 @@
-pub(crate) fn build_dll(sh: &xshell::Shell, release: bool) -> anyhow::Result<()> {
+use std::fs::{self, create_dir_all};
+use std::path::{Path, PathBuf};
+
+use anyhow::Context as _;
+
+#[cfg(target_os = "windows")]
+const OUTPUT_LIB_NAME: &str = "ironrdp.dll";
+#[cfg(target_os = "linux")]
+const OUTPUT_LIB_NAME: &str = "libironrdp.so";
+#[cfg(target_os = "macos")]
+const OUTPUT_LIB_NAME: &str = "libironrdp.dylib";
+
+#[cfg(target_os = "windows")]
+const DOTNET_NATIVE_LIB_NAME: &str = "DevolutionsIronRdp.dll";
+#[cfg(target_os = "linux")]
+const DOTNET_NATIVE_LIB_NAME: &str = "libDevolutionsIronRdp.so";
+#[cfg(target_os = "macos")]
+const DOTNET_NATIVE_LIB_NAME: &str = "libDevolutionsIronRdp.dylib";
+
+#[cfg(target_os = "windows")]
+const DOTNET_NATIVE_LIB_PATH: &str = "dependencies/runtimes/win-x64/native/";
+#[cfg(target_os = "linux")]
+const DOTNET_NATIVE_LIB_PATH: &str = "dependencies/runtimes/linux-x64/native/";
+#[cfg(target_os = "macos")]
+const DOTNET_NATIVE_LIB_PATH: &str = "dependencies/runtimes/osx-x64/native/";
+
+pub(crate) fn build_dynamic_lib(sh: &xshell::Shell, release: bool) -> anyhow::Result<()> {
+    println!("Build IronRDP DLL");
+
     let mut args = vec!["build", "--package", "ffi"];
     if release {
         args.push("--release");
     }
     sh.cmd("cargo").args(&args).run()?;
 
-    let target_dir = if release { "release" } else { "debug" };
+    let profile_dir = if release { "release" } else { "debug" };
 
-    let mut path = sh.current_dir();
-    path.push("target");
-    path.push(target_dir);
+    let root_dir = sh.current_dir();
+    let target_dir = root_dir.join("target");
+    let profile_dir = target_dir.join(profile_dir);
 
-    let dll_name = "ironrdp.dll";
-    let devolution_dll_name = "DevolutionsIronRdp.dll";
+    let output_lib_path = profile_dir.join(OUTPUT_LIB_NAME);
 
-    let mut dll_path = path.clone();
-    dll_path.push(dll_name);
+    let dotnet_native_lib_dir_path: PathBuf = DOTNET_NATIVE_LIB_PATH.parse()?;
+    let dotnet_native_lib_path = root_dir.join(&dotnet_native_lib_dir_path).join(DOTNET_NATIVE_LIB_NAME);
 
-    let mut devolution_dll_path = path.clone();
-    devolution_dll_path.push(devolution_dll_name);
+    create_dir_all(&dotnet_native_lib_dir_path)
+        .with_context(|| format!("failed to create directory {}", dotnet_native_lib_dir_path.display()))?;
 
-    // copy dll_path to devolution_dll_path
-    std::fs::copy(&dll_path, &devolution_dll_path)?;
-    println!("Copied {:?} to {:?}", dll_path, devolution_dll_path);
+    std::fs::copy(&output_lib_path, &dotnet_native_lib_path).with_context(|| {
+        format!(
+            "failed to copy {} to {}",
+            output_lib_path.display(),
+            dotnet_native_lib_path.display()
+        )
+    })?;
+
+    println!(
+        "Copied {} to {}",
+        output_lib_path.display(),
+        dotnet_native_lib_path.display()
+    );
 
     Ok(())
 }
-
-use std::fs;
-use std::path::Path;
 
 pub(crate) fn build_bindings(sh: &xshell::Shell, skip_dotnet_build: bool) -> anyhow::Result<()> {
     let dotnet_generated_path = "./dotnet/Devolutions.IronRdp/Generated/";
@@ -54,8 +88,7 @@ pub(crate) fn build_bindings(sh: &xshell::Shell, skip_dotnet_build: bool) -> any
         return Ok(());
     }
 
-    sh.change_dir("./dotnet");
-    sh.change_dir("./Devolutions.IronRdp");
+    sh.change_dir("./dotnet/Devolutions.IronRdp/");
 
     sh.cmd("dotnet").arg("build").run()?;
 
@@ -74,5 +107,6 @@ fn remove_cs_files(dir: &Path) -> anyhow::Result<()> {
             }
         }
     }
+
     Ok(())
 }

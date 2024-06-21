@@ -11,20 +11,12 @@ namespace Devolutions.IronRdp;
 
 #nullable enable
 
-public partial class State: IDisposable
+public partial class Char: IDisposable
 {
-    private unsafe Raw.State* _inner;
-
-    public string Name
-    {
-        get
-        {
-            return GetName();
-        }
-    }
+    private unsafe Raw.Char* _inner;
 
     /// <summary>
-    /// Creates a managed <c>State</c> from a raw handle.
+    /// Creates a managed <c>Char</c> from a raw handle.
     /// </summary>
     /// <remarks>
     /// Safety: you should not build two managed objects using the same raw handle (may causes use-after-free and double-free).
@@ -32,66 +24,65 @@ public partial class State: IDisposable
     /// This constructor assumes the raw struct is allocated on Rust side.
     /// If implemented, the custom Drop implementation on Rust side WILL run on destruction.
     /// </remarks>
-    public unsafe State(Raw.State* handle)
+    public unsafe Char(Raw.Char* handle)
     {
         _inner = handle;
     }
 
     /// <exception cref="IronRdpException"></exception>
-    public void GetName(DiplomatWriteable writeable)
+    /// <returns>
+    /// A <c>Char</c> allocated on Rust side.
+    /// </returns>
+    public static Char New(uint c)
     {
         unsafe
         {
-            if (_inner == null)
-            {
-                throw new ObjectDisposedException("State");
-            }
-            Raw.ConnectorFfiResultVoidBoxIronRdpError result = Raw.State.GetName(_inner, &writeable);
+            Raw.InputFfiResultBoxCharBoxIronRdpError result = Raw.Char.New(c);
             if (!result.isOk)
             {
                 throw new IronRdpException(new IronRdpError(result.Err));
             }
+            Raw.Char* retVal = result.Ok;
+            return new Char(retVal);
         }
     }
 
-    /// <exception cref="IronRdpException"></exception>
-    public string GetName()
+    /// <returns>
+    /// A <c>Operation</c> allocated on Rust side.
+    /// </returns>
+    public Operation AsOperationUnicodeKeyPressed()
     {
         unsafe
         {
             if (_inner == null)
             {
-                throw new ObjectDisposedException("State");
+                throw new ObjectDisposedException("Char");
             }
-            DiplomatWriteable writeable = new DiplomatWriteable();
-            Raw.ConnectorFfiResultVoidBoxIronRdpError result = Raw.State.GetName(_inner, &writeable);
-            if (!result.isOk)
-            {
-                throw new IronRdpException(new IronRdpError(result.Err));
-            }
-            string retVal = writeable.ToUnicode();
-            writeable.Dispose();
-            return retVal;
+            Raw.Operation* retVal = Raw.Char.AsOperationUnicodeKeyPressed(_inner);
+            return new Operation(retVal);
         }
     }
 
-    public bool IsTerminal()
+    /// <returns>
+    /// A <c>Operation</c> allocated on Rust side.
+    /// </returns>
+    public Operation AsOperationUnicodeKeyReleased()
     {
         unsafe
         {
             if (_inner == null)
             {
-                throw new ObjectDisposedException("State");
+                throw new ObjectDisposedException("Char");
             }
-            bool retVal = Raw.State.IsTerminal(_inner);
-            return retVal;
+            Raw.Operation* retVal = Raw.Char.AsOperationUnicodeKeyReleased(_inner);
+            return new Operation(retVal);
         }
     }
 
     /// <summary>
     /// Returns the underlying raw handle.
     /// </summary>
-    public unsafe Raw.State* AsFFI()
+    public unsafe Raw.Char* AsFFI()
     {
         return _inner;
     }
@@ -108,14 +99,14 @@ public partial class State: IDisposable
                 return;
             }
 
-            Raw.State.Destroy(_inner);
+            Raw.Char.Destroy(_inner);
             _inner = null;
 
             GC.SuppressFinalize(this);
         }
     }
 
-    ~State()
+    ~Char()
     {
         Dispose();
     }

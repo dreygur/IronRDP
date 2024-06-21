@@ -643,6 +643,7 @@ impl Session {
                                     }
                                     .build(),
                                 );
+                                active_stage.set_no_server_pointer(no_server_pointer);
                                 break 'activation_seq;
                             }
                         }
@@ -776,6 +777,7 @@ fn build_config(
         enable_credssp: true,
         keyboard_type: ironrdp::pdu::gcc::KeyboardType::IbmEnhanced,
         keyboard_subtype: 0,
+        keyboard_layout: 0, // the server SHOULD use the default active input locale identifier
         keyboard_functional_keys_count: 12,
         ime_file_name: String::new(),
         dig_product_id: String::new(),
@@ -802,6 +804,7 @@ fn build_config(
         autologon: false,
         pointer_software_rendering: false,
         performance_flags: PerformanceFlags::default(),
+        desktop_scale_factor: 0,
     }
 }
 

@@ -23,6 +23,14 @@ public partial class ConfigBuilder: IDisposable
         }
     }
 
+    public BitmapConfig BitmapConfig
+    {
+        set
+        {
+            SetBitmapConfig(value);
+        }
+    }
+
     public uint ClientBuild
     {
         set
@@ -95,6 +103,14 @@ public partial class ConfigBuilder: IDisposable
         }
     }
 
+    public uint KeyboardLayout
+    {
+        set
+        {
+            SetKeyboardLayout(value);
+        }
+    }
+
     public uint KeyboardSubtype
     {
         set
@@ -161,7 +177,7 @@ public partial class ConfigBuilder: IDisposable
         }
     }
 
-    public void WithUsernameAndPasswrord(string username, string password)
+    public void WithUsernameAndPassword(string username, string password)
     {
         unsafe
         {
@@ -177,7 +193,7 @@ public partial class ConfigBuilder: IDisposable
             {
                 fixed (byte* passwordBufPtr = passwordBuf)
                 {
-                    Raw.ConfigBuilder.WithUsernameAndPasswrord(_inner, usernameBufPtr, usernameBufLength, passwordBufPtr, passwordBufLength);
+                    Raw.ConfigBuilder.WithUsernameAndPassword(_inner, usernameBufPtr, usernameBufLength, passwordBufPtr, passwordBufLength);
                 }
             }
         }
@@ -221,6 +237,18 @@ public partial class ConfigBuilder: IDisposable
                 throw new ObjectDisposedException("ConfigBuilder");
             }
             Raw.ConfigBuilder.SetEnableCredssp(_inner, enableCredssp);
+        }
+    }
+
+    public void SetKeyboardLayout(uint keyboardLayout)
+    {
+        unsafe
+        {
+            if (_inner == null)
+            {
+                throw new ObjectDisposedException("ConfigBuilder");
+            }
+            Raw.ConfigBuilder.SetKeyboardLayout(_inner, keyboardLayout);
         }
     }
 
@@ -323,6 +351,24 @@ public partial class ConfigBuilder: IDisposable
                 throw new ObjectDisposedException("PerformanceFlags");
             }
             Raw.ConfigBuilder.SetPerformanceFlags(_inner, performanceFlagsRaw);
+        }
+    }
+
+    public void SetBitmapConfig(BitmapConfig bitmap)
+    {
+        unsafe
+        {
+            if (_inner == null)
+            {
+                throw new ObjectDisposedException("ConfigBuilder");
+            }
+            Raw.BitmapConfig* bitmapRaw;
+            bitmapRaw = bitmap.AsFFI();
+            if (bitmapRaw == null)
+            {
+                throw new ObjectDisposedException("BitmapConfig");
+            }
+            Raw.ConfigBuilder.SetBitmapConfig(_inner, bitmapRaw);
         }
     }
 

@@ -1,3 +1,4 @@
+pub mod activation;
 pub mod config;
 pub mod result;
 pub mod state;
@@ -5,10 +6,12 @@ pub mod state;
 #[diplomat::bridge]
 pub mod ffi {
     use diplomat_runtime::DiplomatWriteable;
-    use ironrdp::connector::Sequence as _;
+    use ironrdp::{connector::Sequence as _, displaycontrol::client::DisplayControlClient};
     use std::fmt::Write;
+    use tracing::info;
 
     use crate::{
+        clipboard::ffi::Cliprdr,
         error::{
             ffi::{IronRdpError, IronRdpErrorKind},
             ValueConsumedError,
@@ -16,7 +19,7 @@ pub mod ffi {
         pdu::ffi::WriteBuf,
     };
 
-    use super::{config::ffi::Config, result::ffi::Written};
+    use super::{config::ffi::Config, result::ffi::Written, state::ffi::ClientConnectorState};
 
     #[diplomat::opaque] // We must use Option here, as ClientConnector is not Clone and have functions that consume it
     pub struct ClientConnector(pub Option<ironrdp::connector::ClientConnector>);
@@ -72,6 +75,22 @@ pub mod ffi {
             Ok(())
         }
 
+        pub fn with_dynamic_channel_display_control(&mut self) -> Result<(), Box<IronRdpError>> {
+            let Some(connector) = self.0.take() else {
+                return Err(ValueConsumedError::for_item("connector").into());
+            };
+            self.0 = Some(
+                connector.with_static_channel(ironrdp::dvc::DrdynvcClient::new().with_dynamic_channel(
+                    DisplayControlClient::new(|c| {
+                        info!(DisplayCountrolCapabilities = ?c, "DisplayControl capabilities received");
+                        Ok(Vec::new())
+                    }),
+                )),
+            );
+
+            Ok(())
+        }
+
         pub fn should_perform_security_upgrade(&self) -> Result<bool, Box<IronRdpError>> {
             let Some(connector) = self.0.as_ref() else {
                 return Err(ValueConsumedError::for_item("connector").into());
@@ -118,6 +137,19 @@ pub mod ffi {
             let written = connector.step_no_input(&mut write_buf.0)?;
             Ok(Box::new(Written(written)))
         }
+
+        pub fn attach_static_cliprdr(&mut self, cliprdr: &mut Cliprdr) -> Result<(), Box<IronRdpError>> {
+            let Some(connector) = self.0.as_mut() else {
+                return Err(ValueConsumedError::for_item("connector").into());
+            };
+
+            let Some(cliprdr) = cliprdr.0.take() else {
+                return Err(ValueConsumedError::for_item("cliprdr").into());
+            };
+
+            connector.attach_static_channel(cliprdr);
+            Ok(())
+        }
     }
 
     #[diplomat::opaque]
@@ -132,9 +164,9 @@ pub mod ffi {
     }
 
     #[diplomat::opaque]
-    pub struct State<'a>(pub &'a dyn ironrdp::connector::State);
+    pub struct DynState<'a>(pub &'a dyn ironrdp::connector::State);
 
-    impl<'a> State<'a> {
+    impl<'a> DynState<'a> {
         pub fn get_name(&'a self, writeable: &'a mut DiplomatWriteable) -> Result<(), Box<IronRdpError>> {
             let name = self.0.name();
             write!(writeable, "{}", name)?;
@@ -151,14 +183,30 @@ pub mod ffi {
             let Some(connector) = self.0.as_ref() else {
                 return Err(ValueConsumedError::for_item("connector").into());
             };
+            tracing::trace!(pduhint=?connector.next_pdu_hint(), "Reading next PDU hint");
             Ok(connector.next_pdu_hint().map(PduHint).map(Box::new))
         }
 
-        pub fn state(&self) -> Result<Box<State<'_>>, Box<IronRdpError>> {
+        pub fn get_dyn_state(&self) -> Result<Box<DynState<'_>>, Box<IronRdpError>> {
             let Some(connector) = self.0.as_ref() else {
                 return Err(ValueConsumedError::for_item("connector").into());
             };
-            Ok(Box::new(State(connector.state())))
+            Ok(Box::new(DynState(connector.state())))
+        }
+
+        pub fn consume_and_cast_to_client_connector_state(
+            &mut self,
+        ) -> Result<Box<ClientConnectorState>, Box<IronRdpError>> {
+            let Some(connector) = self.0.take() else {
+                return Err(ValueConsumedError::for_item("connector").into());
+            };
+            Ok(Box::new(ClientConnectorState(Some(connector.state))))
         }
     }
+
+    #[diplomat::opaque]
+    pub struct ChannelConnectionSequence(pub ironrdp::connector::ChannelConnectionSequence);
+
+    #[diplomat::opaque]
+    pub struct LicenseExchangeSequence(pub ironrdp::connector::LicenseExchangeSequence);
 }

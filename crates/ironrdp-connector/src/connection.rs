@@ -630,7 +630,7 @@ fn create_gcc_blocks<'a>(
             desktop_height: config.desktop_size.height,
             color_depth: ColorDepth::Bpp8, // ignored because we use the optional core data below
             sec_access_sequence: SecureAccessSequence::Del,
-            keyboard_layout: 0, // the server SHOULD use the default active input locale identifier
+            keyboard_layout: config.keyboard_layout,
             client_build: config.client_build,
             client_name: config.client_name.clone(),
             keyboard_type: config.keyboard_type,
@@ -660,11 +660,19 @@ fn create_gcc_blocks<'a>(
                 dig_product_id: Some(config.dig_product_id.clone()),
                 connection_type: Some(ConnectionType::Lan),
                 server_selected_protocol: Some(selected_protocol),
-                desktop_physical_width: None,
-                desktop_physical_height: None,
-                desktop_orientation: None,
-                desktop_scale_factor: None,
-                device_scale_factor: None,
+                desktop_physical_width: Some(0),  // 0 per FreeRDP
+                desktop_physical_height: Some(0), // 0 per FreeRDP
+                desktop_orientation: if config.desktop_size.width > config.desktop_size.height {
+                    Some(MonitorOrientation::Landscape as u16)
+                } else {
+                    Some(MonitorOrientation::Portrait as u16)
+                },
+                desktop_scale_factor: Some(config.desktop_scale_factor),
+                device_scale_factor: if config.desktop_scale_factor >= 100 && config.desktop_scale_factor <= 500 {
+                    Some(100)
+                } else {
+                    Some(0)
+                },
             },
         },
         security: ClientSecurityData {
@@ -700,13 +708,16 @@ fn create_client_info_pdu(config: &Config, routing_addr: &SocketAddr) -> rdp::Cl
     };
 
     // Default flags for all sessions
-    let mut flags = ClientInfoFlags::UNICODE
+    let mut flags = ClientInfoFlags::MOUSE
+        | ClientInfoFlags::MOUSE_HAS_WHEEL
+        | ClientInfoFlags::UNICODE
         | ClientInfoFlags::DISABLE_CTRL_ALT_DEL
         | ClientInfoFlags::LOGON_NOTIFY
         | ClientInfoFlags::LOGON_ERRORS
         | ClientInfoFlags::NO_AUDIO_PLAYBACK
         | ClientInfoFlags::VIDEO_DISABLE
-        | ClientInfoFlags::ENABLE_WINDOWS_KEY;
+        | ClientInfoFlags::ENABLE_WINDOWS_KEY
+        | ClientInfoFlags::MAXIMIZE_SHELL;
 
     if config.autologon {
         flags |= ClientInfoFlags::AUTOLOGON;

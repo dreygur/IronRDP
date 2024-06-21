@@ -19,8 +19,8 @@ public partial struct ConfigBuilder
     [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_new", ExactSpelling = true)]
     public static unsafe extern ConfigBuilder* New();
 
-    [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_with_username_and_passwrord", ExactSpelling = true)]
-    public static unsafe extern void WithUsernameAndPasswrord(ConfigBuilder* self, byte* username, nuint usernameSz, byte* password, nuint passwordSz);
+    [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_with_username_and_password", ExactSpelling = true)]
+    public static unsafe extern void WithUsernameAndPassword(ConfigBuilder* self, byte* username, nuint usernameSz, byte* password, nuint passwordSz);
 
     [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_domain", ExactSpelling = true)]
     public static unsafe extern void SetDomain(ConfigBuilder* self, byte* domain, nuint domainSz);
@@ -30,6 +30,9 @@ public partial struct ConfigBuilder
 
     [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_enable_credssp", ExactSpelling = true)]
     public static unsafe extern void SetEnableCredssp(ConfigBuilder* self, [MarshalAs(UnmanagedType.U1)] bool enableCredssp);
+
+    [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_keyboard_layout", ExactSpelling = true)]
+    public static unsafe extern void SetKeyboardLayout(ConfigBuilder* self, uint keyboardLayout);
 
     [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_keyboard_type", ExactSpelling = true)]
     public static unsafe extern void SetKeyboardType(ConfigBuilder* self, KeyboardType keyboardType);
@@ -51,6 +54,9 @@ public partial struct ConfigBuilder
 
     [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_performance_flags", ExactSpelling = true)]
     public static unsafe extern void SetPerformanceFlags(ConfigBuilder* self, PerformanceFlags* performanceFlags);
+
+    [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_bitmap_config", ExactSpelling = true)]
+    public static unsafe extern void SetBitmapConfig(ConfigBuilder* self, BitmapConfig* bitmap);
 
     [DllImport(NativeLib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "ConfigBuilder_set_client_build", ExactSpelling = true)]
     public static unsafe extern void SetClientBuild(ConfigBuilder* self, uint clientBuild);

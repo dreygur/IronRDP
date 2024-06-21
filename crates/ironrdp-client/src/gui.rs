@@ -63,9 +63,16 @@ impl GuiContext {
             match event {
                 Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
                     WindowEvent::Resized(size) => {
+                        let scale_factor = (window.scale_factor() * 100.0) as u32;
+
                         let _ = input_event_sender.send(RdpInputEvent::Resize {
                             width: u16::try_from(size.width).unwrap(),
                             height: u16::try_from(size.height).unwrap(),
+                            scale_factor,
+                            // TODO: it should be possible to get the physical size here, however winit doesn't make it straightforward.
+                            // FreeRDP does it based on DPI reading grabbed via [`SDL_GetDisplayDPI`](https://wiki.libsdl.org/SDL2/SDL_GetDisplayDPI):
+                            // https://github.com/FreeRDP/FreeRDP/blob/ba8cf8cf2158018fb7abbedb51ab245f369be813/client/SDL/sdl_monitor.cpp#L250-L262
+                            physical_size: None,
                         });
                     }
                     WindowEvent::CloseRequested => {
@@ -225,6 +232,8 @@ impl GuiContext {
                     // TODO: is there something we should handle here?
                 }
                 Event::UserEvent(RdpOutputEvent::Image { buffer, width, height }) => {
+                    trace!(width = ?width, height = ?height, "Received image with size");
+                    trace!(window_physical_size = ?window.inner_size(), "Drawing image to the window with size");
                     surface
                         .resize(
                             NonZeroU32::new(u32::from(width)).unwrap(),

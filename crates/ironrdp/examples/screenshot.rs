@@ -181,6 +181,7 @@ fn build_config(username: String, password: String, domain: Option<String>) -> c
         enable_credssp: true,
         keyboard_type: KeyboardType::IbmEnhanced,
         keyboard_subtype: 0,
+        keyboard_layout: 0,
         keyboard_functional_keys_count: 12,
         ime_file_name: String::new(),
         dig_product_id: String::new(),
@@ -217,6 +218,7 @@ fn build_config(username: String, password: String, domain: Option<String>) -> c
         autologon: false,
         pointer_software_rendering: true,
         performance_flags: PerformanceFlags::default(),
+        desktop_scale_factor: 0,
     }
 }
 

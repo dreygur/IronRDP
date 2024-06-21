@@ -19,4 +19,7 @@ public enum IronRdpErrorKind
     Consumed = 3,
     IO = 4,
     AccessDenied = 5,
+    IncorrectEnumType = 6,
+    Clipboard = 7,
+    WrongOS = 8,
 }

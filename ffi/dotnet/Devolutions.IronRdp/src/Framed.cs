@@ -1,20 +1,46 @@
 using System.Runtime.InteropServices;
-using Devolutions.IronRdp;
 
-public class Framed<S> where S : Stream
+namespace Devolutions.IronRdp;
+
+public class Framed<TS> where TS : Stream
 {
-    private S stream;
-    private List<byte> buffer;
+    private readonly TS _stream;
+    private List<byte> _buffer;
+    private readonly Mutex _writeLock = new();
 
-    public Framed(S stream)
+    public Framed(TS stream)
     {
-        this.stream = stream;
-        this.buffer = new List<byte>();
+        _stream = stream;
+        _buffer = new List<byte>();
     }
 
-    public (S, List<byte>) GetInner()
+    public (TS, List<byte>) GetInner()
     {
-        return (this.stream, this.buffer);
+        return (_stream, _buffer);
+    }
+
+    public async Task<(Action, byte[])> ReadPdu()
+    {
+        while (true)
+        {
+            var pduInfo = IronRdpPdu.New().FindSize(this._buffer.ToArray());
+
+            // Don't remove, FindSize is generated and can return null
+            if (null != pduInfo)
+            {
+                var frame = await this.ReadExact(pduInfo.GetLength());
+                var action = pduInfo.GetAction();
+                return (action, frame);
+            }
+            else
+            {
+                var len = await this.Read();
+                if (len == 0)
+                {
+                    throw new IronRdpLibException(IronRdpLibExceptionType.EndOfFile, "EOF on ReadPdu");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -24,7 +50,7 @@ public class Framed<S> where S : Stream
     /// <returns>A span that represents a portion of the underlying buffer.</returns>
     public Span<byte> Peek()
     {
-        return CollectionsMarshal.AsSpan(this.buffer);
+        return CollectionsMarshal.AsSpan(this._buffer);
     }
 
     /// <summary>
@@ -36,10 +62,10 @@ public class Framed<S> where S : Stream
     {
         while (true)
         {
-            if (buffer.Count >= (int)size)
+            if (_buffer.Count >= (int)size)
             {
-                var res = this.buffer.Take((int)size).ToArray();
-                this.buffer = this.buffer.Skip((int)size).ToList();
+                var res = this._buffer.Take((int)size).ToArray();
+                this._buffer = this._buffer.Skip((int)size).ToList();
                 return res;
             }
 
@@ -53,17 +79,34 @@ public class Framed<S> where S : Stream
 
     async Task<int> Read()
     {
-        var buffer = new byte[1024];
+        var buffer = new byte[8096];
         Memory<byte> memory = buffer;
-        var size = await this.stream.ReadAsync(memory);
-        this.buffer.AddRange(buffer.Take(size));
+        var size = await this._stream.ReadAsync(memory);
+        this._buffer.AddRange(buffer.Take(size));
         return size;
     }
 
     public async Task Write(byte[] data)
     {
-        ReadOnlyMemory<byte> memory = data;
-        await this.stream.WriteAsync(memory);
+        _writeLock.WaitOne();
+        try
+        {
+            ReadOnlyMemory<byte> memory = data;
+            await _stream.WriteAsync(memory);
+        }
+        finally
+        {
+            _writeLock.ReleaseMutex();
+        }
+    }
+
+    public async Task Write(WriteBuf buf)
+    {
+        var vecU8 = buf.GetFilled();
+        var size = vecU8.GetSize();
+        var bytesArray = new byte[size];
+        vecU8.Fill(bytesArray);
+        await Write(bytesArray);
     }
 
 
@@ -76,7 +119,7 @@ public class Framed<S> where S : Stream
     {
         while (true)
         {
-            var size = pduHint.FindSize(this.buffer.ToArray());
+            var size = pduHint.FindSize(this._buffer.ToArray());
             if (size.IsSome())
             {
                 return await this.ReadExact(size.Get());
@@ -89,7 +132,6 @@ public class Framed<S> where S : Stream
                     throw new Exception("EOF");
                 }
             }
-
         }
     }
 }

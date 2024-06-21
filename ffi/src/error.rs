@@ -1,7 +1,9 @@
 #![allow(clippy::return_self_not_must_use)]
 use std::fmt::Display;
 
-use ironrdp::connector::ConnectorError;
+use ironrdp::{cliprdr::backend::ClipboardError, connector::ConnectorError, session::SessionError};
+#[cfg(target_os = "windows")]
+use ironrdp_cliprdr_native::WinCliprdrError;
 
 use self::ffi::IronRdpErrorKind;
 
@@ -46,6 +48,34 @@ impl From<std::fmt::Error> for IronRdpErrorKind {
     }
 }
 
+impl From<SessionError> for IronRdpErrorKind {
+    fn from(value: SessionError) -> Self {
+        match value.kind() {
+            ironrdp::session::SessionErrorKind::Pdu(_) => IronRdpErrorKind::PduError,
+            _ => IronRdpErrorKind::Generic,
+        }
+    }
+}
+
+impl From<&dyn ClipboardError> for IronRdpErrorKind {
+    fn from(_val: &dyn ClipboardError) -> Self {
+        IronRdpErrorKind::Clipboard
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl From<WinCliprdrError> for IronRdpErrorKind {
+    fn from(_val: WinCliprdrError) -> Self {
+        IronRdpErrorKind::Clipboard
+    }
+}
+
+impl From<WrongOSError> for IronRdpErrorKind {
+    fn from(_val: WrongOSError) -> Self {
+        IronRdpErrorKind::WrongOS
+    }
+}
+
 impl<T> From<T> for Box<ffi::IronRdpError>
 where
     T: Into<IronRdpErrorKind> + ToString,
@@ -81,6 +111,12 @@ pub mod ffi {
         IO,
         #[error("Access denied")]
         AccessDenied,
+        #[error("Incorrect rust enum type")]
+        IncorrectEnumType,
+        #[error("Clipboard error")]
+        Clipboard,
+        #[error("wrong platform error")]
+        WrongOS,
     }
 
     /// Stringified Picky error along with an error kind.
@@ -134,5 +170,73 @@ impl Display for ValueConsumedError {
 impl From<ValueConsumedError> for IronRdpErrorKind {
     fn from(_val: ValueConsumedError) -> Self {
         IronRdpErrorKind::Consumed
+    }
+}
+
+pub struct IncorrectEnumTypeError {
+    expected: &'static str,
+    enum_name: &'static str,
+}
+
+impl IncorrectEnumTypeError {
+    pub fn on_variant(variant: &'static str) -> IncorrectEnumTypeErrorBuilder {
+        IncorrectEnumTypeErrorBuilder { expected: variant }
+    }
+}
+
+pub struct IncorrectEnumTypeErrorBuilder {
+    expected: &'static str,
+}
+
+impl IncorrectEnumTypeErrorBuilder {
+    pub fn of_enum(self, enum_name: &'static str) -> IncorrectEnumTypeError {
+        IncorrectEnumTypeError {
+            expected: self.expected,
+            enum_name,
+        }
+    }
+}
+
+impl Display for IncorrectEnumTypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "expected enum variable {}, of enum {}",
+            self.expected, self.enum_name
+        )
+    }
+}
+
+impl From<IncorrectEnumTypeError> for IronRdpErrorKind {
+    fn from(_val: IncorrectEnumTypeError) -> Self {
+        IronRdpErrorKind::IncorrectEnumType
+    }
+}
+
+pub struct WrongOSError {
+    expected: &'static str,
+    custom_message: Option<String>,
+}
+
+impl WrongOSError {
+    pub fn expected_platform(expected: &'static str) -> WrongOSError {
+        WrongOSError {
+            expected,
+            custom_message: None,
+        }
+    }
+
+    pub fn with_custom_message(mut self, message: &str) -> WrongOSError {
+        self.custom_message = Some(message.to_owned());
+        self
+    }
+}
+
+impl Display for WrongOSError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(custom_message) = &self.custom_message {
+            write!(f, "{}", custom_message)?;
+        }
+        write!(f, "expected platform {}", self.expected)
     }
 }

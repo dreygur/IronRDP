@@ -72,6 +72,10 @@ impl Credentials {
 pub struct Config {
     /// The initial desktop size to request
     pub desktop_size: DesktopSize,
+    /// The initial desktop scale factor to request.
+    ///
+    /// This becomes the `desktop_scale_factor` in the [`TS_UD_CS_CORE`](gcc::ClientCoreOptionalData) structure.
+    pub desktop_scale_factor: u32,
     /// TLS + Graphical login (legacy)
     ///
     /// Also called SSL or TLS security protocol.
@@ -129,6 +133,7 @@ pub struct Config {
     pub keyboard_type: gcc::KeyboardType,
     pub keyboard_subtype: u32,
     pub keyboard_functional_keys_count: u32,
+    pub keyboard_layout: u32,
     pub ime_file_name: String,
     pub bitmap: Option<BitmapConfig>,
     pub dig_product_id: String,
